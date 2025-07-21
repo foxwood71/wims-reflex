@@ -5,7 +5,7 @@
 
 import reflex as rx
 from sqlmodel import select
-from typing import List
+from typing import List, Dict, Any
 from ...state.base import BaseState
 from .models import User, Department, UserRole
 from ...utils import get_password_hash
@@ -14,12 +14,37 @@ from ...utils import get_password_hash
 class UserAdminState(BaseState):
     """사용자 관리 페이지의 상태와 이벤트 핸들러"""
 
+    # [ADD] A class variable to hold the list of UserRole enum members.
+    role_options: list[dict] = [
+        {"value": str(role.value), "label": role.name}
+        for role in UserRole
+    ]
+    
     #  페이지에서 사용할 상태 변수들
     users: List[User] = []
     departments: List[Department] = []
     show_modal: bool = False
     form_data: dict = {}
     is_edit: bool = False
+
+    # [신규] UI에 표시하기 위한 데이터를 가공하는 계산된 속성
+    @rx.var
+    def display_users(self) -> List[Dict[str, Any]]:
+        """DB에서 가져온 User 모델 리스트를 UI에 표시하기 쉬운 딕셔너리 리스트로 변환합니다."""
+        user_list = []
+        for user in self.users:
+            user_list.append(
+                {
+                    "id": user.id,
+                    "login_id": user.login_id,
+                    "name": user.name or "",
+                    "email": user.email or "",
+                    "role_name": user.role.name,  # 백엔드에서는 .name 접근이 가능합니다.
+                    "department_name": user.department.name if user.department else "N/A",
+                    "is_active": user.is_active,
+                }
+            )
+        return user_list
 
     def load_users_page(self):
         """페이지가 로드될 때 사용자 및 부서 목록을 DB에서 가져옵니다."""
@@ -35,6 +60,21 @@ class UserAdminState(BaseState):
             self.update_user()
         else:
             self.create_user()
+
+    # [수정] open_edit_modal이 user_id를 받도록 변경
+    def open_edit_modal(self, user_id: int):
+        """사용자 수정 모달을 엽니다."""
+        self.is_edit = True
+        # ID를 사용해 DB에서 최신 사용자 정보를 가져옵니다.
+        with rx.session() as session:
+            user = session.get(User, user_id)
+            if user:
+                self.form_data = user.dict()
+                self.form_data["department_id"] = str(user.department_id) if user.department_id else ""
+                self.show_modal = True
+            else:
+                return rx.window_alert("사용자를 찾을 수 없습니다.")
+
 
     def create_user(self):
         """새로운 사용자를 생성합니다."""
@@ -126,6 +166,10 @@ class UserAdminState(BaseState):
         self.form_data = {}
         #  getattr을 사용하여 문자열로 전달된 메서드를 호출
         getattr(self, reload_method_name)()
+
+    # [추가] rx.dialog의 on_open_change 이벤트를 처리할 함수
+    def set_show_modal(self, open: bool):
+        self.show_modal = open
 
 
 class DeptAdminState(BaseState):
@@ -221,3 +265,7 @@ class DeptAdminState(BaseState):
         self.show_modal = False
         self.form_data = {}
         getattr(self, reload_method_name)()
+
+    # [추가] rx.dialog의 on_open_change 이벤트를 처리할 함수
+    def set_show_modal(self, open: bool):
+        self.show_modal = open

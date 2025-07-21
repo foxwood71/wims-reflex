@@ -12,87 +12,97 @@ from .models import UserRole
 # 1. 사용자 관리 페이지 컴포넌트
 # =============================================================================
 
+
 def user_modal() -> rx.Component:
-    """사용자 생성 및 수정을 위한 모달(팝업) 컴포넌트입니다."""
-    return rx.modal(
-        rx.form(
-            rx.vstack(
-                rx.heading(
-                    rx.cond(UserAdminState.is_edit, "사용자 수정", "사용자 생성"),
-                    size="5"
-                ),
-                rx.input(
-                    name="login_id",
-                    placeholder="로그인 ID (수정 불가)",
-                    default_value=UserAdminState.form_data.get("login_id", ""),
-                    is_disabled=UserAdminState.is_edit,
-                    required=True,
-                ),
-                rx.input(
-                    name="email",
-                    placeholder="이메일",
-                    type="email",
-                    default_value=UserAdminState.form_data.get("email", ""),
-                    required=True
-                ),
-                rx.input(
-                    name="name",
-                    placeholder="이름",
-                    default_value=UserAdminState.form_data.get("name", "")
-                ),
-                rx.select(
-                    [
-                        {"value": str(role.value), "label": role.name}
-                        for role in UserRole
-                    ],
-                    name="role",
-                    placeholder="역할 선택",
-                    default_value=str(UserAdminState.form_data.get("role", "")),
-                ),
-                rx.select(
-                    rx.foreach(
-                        UserAdminState.departments,
-                        lambda dept: rx.option(f"{dept.name} ({dept.code})", value=str(dept.id))
+    """A dialog to create or edit a user."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.form(
+                rx.vstack(
+                    rx.dialog.title(
+                        rx.cond(UserAdminState.is_edit, "Edit User", "Create User")
                     ),
-                    name="department_id",
-                    placeholder="부서 선택",
-                    default_value=UserAdminState.form_data.get("department_id", ""),
-                ),
-                #  새 사용자 생성 시에만 비밀번호 필드를 보여줍니다.
-                rx.cond(
-                    ~UserAdminState.is_edit,
                     rx.input(
-                        name="password",
-                        placeholder="비밀번호",
-                        type="password",
+                        name="login_id",
+                        placeholder="Login ID (cannot be changed)",
+                        default_value=UserAdminState.form_data.get("login_id", ""),
+                        is_disabled=UserAdminState.is_edit,
+                        required=True,
+                    ),
+                    rx.input(
+                        name="email",
+                        placeholder="Email",
+                        type="email",
+                        default_value=UserAdminState.form_data.get("email", ""),
                         required=True
                     ),
-                ),
-                rx.hstack(
-                    rx.button(
-                        "취소",
-                        on_click=lambda: UserAdminState.close_and_reload("load_users_page"),
-                        type="button",
-                        color_scheme="gray"
+                    rx.input(
+                        name="name",
+                        placeholder="Name",
+                        default_value=UserAdminState.form_data.get("name", "")
                     ),
-                    rx.button("저장", type="submit"),
-                    spacing="3",
-                    justify="end",
-                    padding_top="1rem",
-                ),
-                spacing="4",
-                width="100%",
-            ),
-            on_submit=UserAdminState.handle_submit,
-        ),
-        is_open=UserAdminState.show_modal,
-    )
 
+                    # Role selection dropdown
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Select a Role"),
+                        rx.select.content(
+                            # [FIX] Access dictionary keys instead of attributes
+                            rx.foreach(
+                                UserAdminState.role_options,
+                                lambda role: rx.select.item(role["label"], value=role["value"])
+                            )
+                        ),
+                        name="role",
+                        default_value=str(UserAdminState.form_data.get("role", "")),
+                        required=True,
+                    ),
+
+                    # Department selection dropdown
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Select a Department"),
+                        rx.select.content(
+                            rx.foreach(
+                                UserAdminState.departments,
+                                # [FIX] Changed rx.select.option to rx.select.item
+                                lambda dept: rx.select.item(f"{dept.name} ({dept.code})", value=str(dept.id))
+                            )
+                        ),
+                        name="department_id",
+                        default_value=UserAdminState.form_data.get("department_id", ""),
+                    ),
+                    
+                    rx.cond(
+                        ~UserAdminState.is_edit,
+                        rx.input(
+                            name="password",
+                            placeholder="Password",
+                            type="password",
+                            required=True
+                        ),
+                    ),
+                    rx.hstack(
+                        rx.dialog.close(
+                            rx.button("Cancel", type="button", color_scheme="gray")
+                        ),
+                        rx.button("Save", type="submit"),
+                        spacing="3",
+                        justify="end",
+                        padding_top="1rem",
+                    ),
+                    spacing="4",
+                    width="100%",
+                ),
+                on_submit=UserAdminState.handle_submit,
+            ),
+        ),
+        open=UserAdminState.show_modal,
+        on_open_change=UserAdminState.set_show_modal,
+    )
 
 def user_admin_page() -> rx.Component:
     """사용자 관리 페이지의 메인 컨텐츠입니다."""
     return rx.vstack(
-        #  페이지 헤더
+        # ... (페이지 헤더 부분은 동일) ...
         rx.hstack(
             rx.heading("사용자 목록", size="7"),
             rx.spacer(),
@@ -100,41 +110,35 @@ def user_admin_page() -> rx.Component:
             align="center",
             width="100%",
         ),
-        #  사용자 목록 테이블
         rx.table.root(
             rx.table.header(
-                rx.table.row(
-                    rx.table.column_header_cell("ID"),
-                    rx.table.column_header_cell("로그인 ID"),
-                    rx.table.column_header_cell("이름"),
-                    rx.table.column_header_cell("이메일"),
-                    rx.table.column_header_cell("역할"),
-                    rx.table.column_header_cell("부서"),
-                    rx.table.column_header_cell("상태"),
-                    rx.table.column_header_cell("작업"),
-                )
+                # ... (테이블 헤더는 동일) ...
             ),
             rx.table.body(
+                # [수정] UserAdminState.users 대신 display_users를 순회합니다.
                 rx.foreach(
-                    UserAdminState.users,
+                    UserAdminState.display_users,
                     lambda user: rx.table.row(
-                        rx.table.cell(user.id),
-                        rx.table.cell(user.login_id),
-                        rx.table.cell(user.name),
-                        rx.table.cell(user.email),
-                        rx.table.cell(user.role_name),
-                        rx.table.cell(user.department.name if user.department else "N/A"),
+                        # [수정] 모든 속성을 딕셔너리 키로 접근합니다.
+                        rx.table.cell(user["id"]),
+                        rx.table.cell(user["login_id"]),
+                        rx.table.cell(user["name"]),
+                        rx.table.cell(user["email"]),
+                        rx.table.cell(user["role_name"]),
+                        rx.table.cell(user["department_name"]),
                         rx.table.cell(
+                            # [수정] python의 if/else 대신 rx.cond 사용
                             rx.badge(
-                                "활성" if user.is_active else "비활성",
-                                color_scheme="grass" if user.is_active else "ruby"
+                                rx.cond(user["is_active"], "활성", "비활성"),
+                                color_scheme=rx.cond(user["is_active"], "grass", "ruby")
                             )
                         ),
                         rx.table.cell(
                             rx.hstack(
+                                # [수정] 이벤트 핸들러에 user 객체 대신 user["id"]를 전달합니다.
                                 rx.button(
                                     "수정",
-                                    on_click=lambda: UserAdminState.open_edit_modal(user),
+                                    on_click=lambda: UserAdminState.open_edit_modal(user["id"]),
                                     size="1"
                                 ),
                                 rx.alert_dialog.root(
@@ -144,14 +148,14 @@ def user_admin_page() -> rx.Component:
                                     rx.alert_dialog.content(
                                         rx.alert_dialog.title("삭제 확인"),
                                         rx.alert_dialog.description(
-                                            f"'{user.login_id}' 사용자를 정말 삭제하시겠습니까?"
+                                            f"'{user['login_id']}' 사용자를 정말 삭제하시겠습니까?"
                                         ),
                                         rx.flex(
                                             rx.alert_dialog.cancel(
                                                 rx.button("취소", color_scheme="gray")
                                             ),
                                             rx.alert_dialog.action(
-                                                rx.button("삭제", on_click=lambda: UserAdminState.delete_user(user.id))
+                                                rx.button("삭제", on_click=lambda: UserAdminState.delete_user(user["id"]))
                                             ),
                                             spacing="3",
                                             justify="end",
@@ -168,10 +172,10 @@ def user_admin_page() -> rx.Component:
             variant="surface",
             width="100%",
         ),
-        user_modal(),  #  페이지에 모달 컴포넌트 포함
+        user_modal(),
         spacing="5",
         width="100%",
-        on_mount=UserAdminState.load_users_page,  #  페이지가 마운트될 때 데이터 로드
+        on_mount=UserAdminState.load_users_page,
     )
 
 
@@ -181,48 +185,50 @@ def user_admin_page() -> rx.Component:
 
 def dept_modal() -> rx.Component:
     """부서 생성 및 수정을 위한 모달 컴포넌트입니다."""
-    return rx.modal(
-        rx.form(
-            rx.vstack(
-                rx.heading(
-                    rx.cond(DeptAdminState.is_edit, "부서 수정", "부서 생성"),
-                    size="5"
-                ),
-                rx.input(
-                    name="code",
-                    placeholder="부서 코드 (예: HR, LAB)",
-                    default_value=DeptAdminState.form_data.get("code", ""),
-                    is_disabled=DeptAdminState.is_edit,
-                    required=True
-                ),
-                rx.input(
-                    name="name",
-                    placeholder="부서 이름",
-                    default_value=DeptAdminState.form_data.get("name", ""),
-                    required=True
-                ),
-                rx.text_area(
-                    name="notes",
-                    placeholder="비고",
-                    default_value=DeptAdminState.form_data.get("notes", "")
-                ),
-                rx.hstack(
-                    rx.button(
-                        "취소",
-                        on_click=lambda: DeptAdminState.close_and_reload("load_depts_page"),
-                        type="button",
-                        color_scheme="gray"
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.form(
+                rx.vstack(
+                    rx.heading(
+                        rx.cond(DeptAdminState.is_edit, "부서 수정", "부서 생성"),
+                        size="5"
                     ),
-                    rx.button("저장", type="submit"),
-                    justify="end",
-                    spacing="3",
-                    padding_top="1rem",
+                    rx.input(
+                        name="code",
+                        placeholder="부서 코드 (예: HR, LAB)",
+                        default_value=DeptAdminState.form_data.get("code", ""),
+                        is_disabled=DeptAdminState.is_edit,
+                        required=True
+                    ),
+                    rx.input(
+                        name="name",
+                        placeholder="부서 이름",
+                        default_value=DeptAdminState.form_data.get("name", ""),
+                        required=True
+                    ),
+                    rx.text_area(
+                        name="notes",
+                        placeholder="비고",
+                        default_value=DeptAdminState.form_data.get("notes", "")
+                    ),
+                    rx.hstack(
+                        rx.button(
+                            "취소",
+                            on_click=lambda: DeptAdminState.close_and_reload("load_depts_page"),
+                            type="button",
+                            color_scheme="gray"
+                        ),
+                        rx.button("저장", type="submit"),
+                        justify="end",
+                        spacing="3",
+                        padding_top="1rem",
+                    ),
+                    spacing="4",
                 ),
-                spacing="4",
+                on_submit=DeptAdminState.handle_submit,
             ),
-            on_submit=DeptAdminState.handle_submit,
-        ),
-        is_open=DeptAdminState.show_modal,
+            is_open=DeptAdminState.show_modal,
+        )
     )
 
 
