@@ -5,9 +5,11 @@ from .pages.index import login_page
 from .domains.usr.pages import user_admin_page, department_admin_page
 # from .domains.lims.pages import ... # 향후 추가될 도메인 페이지
 
+
 #  [신규] 간단한 대시보드 페이지 정의
 def dashboard() -> rx.Component:
     return rx.heading("대시보드에 오신 것을 환영합니다.", size="7")
+
 
 #  App 인스턴스 생성
 app = rx.App(

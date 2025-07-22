@@ -1,108 +1,114 @@
-# /wims_project/wims/domains/usr/pages.py
-"""
-'usr' 도메인(사용자 및 부서 관리)의 UI 페이지 컨텐츠를 정의하는 모듈입니다.
-"""
-
 import reflex as rx
 from .state import UserAdminState, DeptAdminState
-from .models import UserRole
 
 
 # =============================================================================
 # 1. 사용자 관리 페이지 컴포넌트
 # =============================================================================
 
-
 def user_modal() -> rx.Component:
-    """A dialog to create or edit a user."""
+    """사용자 생성 및 수정을 위한 다이얼로그(팝업) 컴포넌트입니다."""
     return rx.dialog.root(
         rx.dialog.content(
             rx.form(
                 rx.vstack(
                     rx.dialog.title(
-                        rx.cond(UserAdminState.is_edit, "Edit User", "Create User")
+                        rx.cond(UserAdminState.is_edit, "사용자 수정", "사용자 생성")
                     ),
                     rx.input(
                         name="login_id",
-                        placeholder="Login ID (cannot be changed)",
+                        placeholder="로그인 ID (수정 불가)",
                         default_value=UserAdminState.form_data.get("login_id", ""),
                         is_disabled=UserAdminState.is_edit,
                         required=True,
                     ),
                     rx.input(
                         name="email",
-                        placeholder="Email",
+                        placeholder="이메일",
                         type="email",
                         default_value=UserAdminState.form_data.get("email", ""),
                         required=True
                     ),
                     rx.input(
                         name="name",
-                        placeholder="Name",
+                        placeholder="이름",
                         default_value=UserAdminState.form_data.get("name", "")
                     ),
-
-                    # Role selection dropdown
                     rx.select.root(
-                        rx.select.trigger(placeholder="Select a Role"),
+                        rx.select.trigger(placeholder="역할 선택"),
                         rx.select.content(
-                            # [FIX] Access dictionary keys instead of attributes
                             rx.foreach(
                                 UserAdminState.role_options,
-                                lambda role: rx.select.item(role["label"], value=role["value"])
+                                lambda role: rx.select.item(role["name"], value=role["id"])
                             )
                         ),
                         name="role",
-                        default_value=str(UserAdminState.form_data.get("role", "")),
+                        # value=UserAdminState.form_data.get("role", ""),
+                        # on_change=lambda value: UserAdminState.set_form_field("role", value),
+                        value=UserAdminState.form_role_id,  # 계산된 속성 사용
+                        on_change=UserAdminState.set_role,   # 전용 핸들러 사용
                         required=True,
                     ),
 
-                    # Department selection dropdown
+                    # 부서(Department) 선택 드롭다운
                     rx.select.root(
-                        rx.select.trigger(placeholder="Select a Department"),
+                        rx.select.trigger(placeholder="부서 선택"),
                         rx.select.content(
                             rx.foreach(
-                                UserAdminState.departments,
-                                # [FIX] Changed rx.select.option to rx.select.item
-                                lambda dept: rx.select.item(f"{dept.name} ({dept.code})", value=str(dept.id))
+                                UserAdminState.department_options,
+                                lambda dept: rx.select.item(dept["name"], value=dept["id"])
                             )
                         ),
                         name="department_id",
-                        default_value=UserAdminState.form_data.get("department_id", ""),
+                        # value=UserAdminState.form_data.get("department_id", ""),
+                        # on_change=lambda value: UserAdminState.set_form_field("department_id", value),
+                        value=UserAdminState.form_department_id,  # 계산된 속성 사용
+                        on_change=UserAdminState.set_department_id,   # 전용 핸들러 사용
+                        required=True,
                     ),
-                    
+
                     rx.cond(
                         ~UserAdminState.is_edit,
                         rx.input(
                             name="password",
-                            placeholder="Password",
+                            placeholder="비밀번호",
                             type="password",
                             required=True
                         ),
                     ),
                     rx.hstack(
                         rx.dialog.close(
-                            rx.button("Cancel", type="button", color_scheme="gray")
+                            rx.button("취소", type="button", color_scheme="gray")
                         ),
-                        rx.button("Save", type="submit"),
-                        spacing="3",
+                        rx.button("저장", type="submit"),
+
                         justify="end",
+                        spacing="3",
                         padding_top="1rem",
+                        width="100%",   # hstack 자체의 너비를 100%로 설정
                     ),
+                    align_items="stretch",
                     spacing="4",
                     width="100%",
                 ),
                 on_submit=UserAdminState.handle_submit,
+                width="100%",
+                # 🔽 이 속성을 추가하여 form이 남는 공간을 모두 채우도록 합니다.
+                flex_grow="1",
             ),
+            style={
+                "max_width": "300px",
+                "width": "100%",
+            },
         ),
         open=UserAdminState.show_modal,
         on_open_change=UserAdminState.set_show_modal,
     )
 
+
 def user_admin_page() -> rx.Component:
     """사용자 관리 페이지의 메인 컨텐츠입니다."""
     return rx.vstack(
-        # ... (페이지 헤더 부분은 동일) ...
         rx.hstack(
             rx.heading("사용자 목록", size="7"),
             rx.spacer(),
@@ -112,14 +118,21 @@ def user_admin_page() -> rx.Component:
         ),
         rx.table.root(
             rx.table.header(
-                # ... (테이블 헤더는 동일) ...
+                rx.table.row(
+                    rx.table.column_header_cell("ID"),
+                    rx.table.column_header_cell("로그인 ID"),
+                    rx.table.column_header_cell("이름"),
+                    rx.table.column_header_cell("이메일"),
+                    rx.table.column_header_cell("역할"),
+                    rx.table.column_header_cell("부서"),
+                    rx.table.column_header_cell("상태"),
+                    rx.table.column_header_cell("작업"),
+                )
             ),
             rx.table.body(
-                # [수정] UserAdminState.users 대신 display_users를 순회합니다.
                 rx.foreach(
                     UserAdminState.display_users,
                     lambda user: rx.table.row(
-                        # [수정] 모든 속성을 딕셔너리 키로 접근합니다.
                         rx.table.cell(user["id"]),
                         rx.table.cell(user["login_id"]),
                         rx.table.cell(user["name"]),
@@ -127,7 +140,6 @@ def user_admin_page() -> rx.Component:
                         rx.table.cell(user["role_name"]),
                         rx.table.cell(user["department_name"]),
                         rx.table.cell(
-                            # [수정] python의 if/else 대신 rx.cond 사용
                             rx.badge(
                                 rx.cond(user["is_active"], "활성", "비활성"),
                                 color_scheme=rx.cond(user["is_active"], "grass", "ruby")
@@ -135,12 +147,7 @@ def user_admin_page() -> rx.Component:
                         ),
                         rx.table.cell(
                             rx.hstack(
-                                # [수정] 이벤트 핸들러에 user 객체 대신 user["id"]를 전달합니다.
-                                rx.button(
-                                    "수정",
-                                    on_click=lambda: UserAdminState.open_edit_modal(user["id"]),
-                                    size="1"
-                                ),
+                                rx.button("수정", on_click=lambda: UserAdminState.open_edit_modal(user["id"]), size="1"),
                                 rx.alert_dialog.root(
                                     rx.alert_dialog.trigger(
                                         rx.button("삭제", color_scheme="ruby", size="1")
@@ -184,14 +191,13 @@ def user_admin_page() -> rx.Component:
 # =============================================================================
 
 def dept_modal() -> rx.Component:
-    """부서 생성 및 수정을 위한 모달 컴포넌트입니다."""
+    """부서 생성 및 수정을 위한 다이얼로그 컴포넌트입니다."""
     return rx.dialog.root(
         rx.dialog.content(
             rx.form(
                 rx.vstack(
-                    rx.heading(
-                        rx.cond(DeptAdminState.is_edit, "부서 수정", "부서 생성"),
-                        size="5"
+                    rx.dialog.title(
+                        rx.cond(DeptAdminState.is_edit, "부서 수정", "부서 생성")
                     ),
                     rx.input(
                         name="code",
@@ -212,11 +218,8 @@ def dept_modal() -> rx.Component:
                         default_value=DeptAdminState.form_data.get("notes", "")
                     ),
                     rx.hstack(
-                        rx.button(
-                            "취소",
-                            on_click=lambda: DeptAdminState.close_and_reload("load_depts_page"),
-                            type="button",
-                            color_scheme="gray"
+                        rx.dialog.close(
+                            rx.button("취소", type="button", color_scheme="gray")
                         ),
                         rx.button("저장", type="submit"),
                         justify="end",
@@ -227,15 +230,15 @@ def dept_modal() -> rx.Component:
                 ),
                 on_submit=DeptAdminState.handle_submit,
             ),
-            is_open=DeptAdminState.show_modal,
-        )
+        ),
+        open=DeptAdminState.show_modal,
+        on_open_change=DeptAdminState.set_show_modal,
     )
 
 
 def department_admin_page() -> rx.Component:
     """부서 관리 페이지의 메인 컨텐츠입니다."""
     return rx.vstack(
-        #  페이지 헤더
         rx.hstack(
             rx.heading("부서 목록", size="7"),
             rx.spacer(),
@@ -243,7 +246,6 @@ def department_admin_page() -> rx.Component:
             align="center",
             width="100%",
         ),
-        #  부서 목록 테이블
         rx.table.root(
             rx.table.header(
                 rx.table.row(
@@ -264,11 +266,7 @@ def department_admin_page() -> rx.Component:
                         rx.table.cell(dept.notes),
                         rx.table.cell(
                             rx.hstack(
-                                rx.button(
-                                    "수정",
-                                    on_click=lambda: DeptAdminState.open_edit_modal(dept),
-                                    size="1"
-                                ),
+                                rx.button("수정", on_click=lambda: DeptAdminState.open_edit_modal(dept), size="1"),
                                 rx.alert_dialog.root(
                                     rx.alert_dialog.trigger(
                                         rx.button("삭제", color_scheme="ruby", size="1")
@@ -300,8 +298,8 @@ def department_admin_page() -> rx.Component:
             variant="surface",
             width="100%",
         ),
-        dept_modal(),  #  페이지에 모달 컴포넌트 포함
+        dept_modal(),
         spacing="5",
         width="100%",
-        on_mount=DeptAdminState.load_depts_page,  #  페이지가 마운트될 때 데이터 로드
+        on_mount=DeptAdminState.load_depts_page,
     )

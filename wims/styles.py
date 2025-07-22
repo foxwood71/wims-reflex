@@ -9,7 +9,7 @@ import reflex as rx
 #  --- 전역 스타일 상수 ---
 HEADER_HEIGHT = "60px"
 SIDEBAR_CLOSED_WIDTH = "60px"
-SIDEBAR_OPEN_WIDTH = "220px"  #  너비를 약간 조정하여 텍스트 잘림 방지
+SIDEBAR_OPEN_WIDTH = "220px"  # 너비를 약간 조정하여 텍스트 잘림 방지
 
 #  --- 공통 애니메이션 효과 ---
 TRANSITION_EFFECT = "width 0.3s ease-in-out, margin-left 0.3s ease-in-out"
@@ -94,7 +94,7 @@ def submenu_container_style(is_expanded: rx.Var[bool]) -> dict:
         "max_height": rx.cond(is_expanded, "200px", "0px"),
         "opacity": rx.cond(is_expanded, "1", "0"),
         "transition": MENU_EXPAND_TRANSITION,
-        "padding_left": "2.2rem",  #  아이콘 너비만큼 들여쓰기
+        "padding_left": "2.2rem",  # 아이콘 너비만큼 들여쓰기
         "box_sizing": "border-box",
         "background_color": SUBMENU_BG_COLOR,
         "border_radius": "var(--radius-2)",

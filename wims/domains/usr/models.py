@@ -70,11 +70,11 @@ class User(rx.Model, table=True):
     login_id: str = Field(max_length=50, unique=True, description="로그인 사용자명")
     password_hash: str = Field(max_length=255, description="해싱된 비밀번호")
     email: Optional[str] = Field(default=None, max_length=100, unique=True, description="사용자 이메일")
-    name: Optional[str] = Field(default=None, max_length=100, description="사용자 전체 이름")
-    
+    name: Optional[str] = Field(default=None, max_length=100, description="사용자 전체 이름")\
+
     #  Department 모델과의 관계 설정 (한 사용자는 하나의 부서에 속함)
     department_id: Optional[int] = Field(default=None, foreign_key="usr.departments.id")
-    
+
     #  UserRole Enum을 사용하여 역할 관리
     role: UserRole = Field(default=UserRole.GENERAL_USER, description="사용자 역할 (권한)")
     code: Optional[str] = Field(default=None, max_length=16, unique=True, description="사번 등 사용자 고유 코드")
