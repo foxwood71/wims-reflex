@@ -1,3 +1,4 @@
+from typing import Any 
 import reflex as rx
 from .state import UserAdminState, DeptAdminState
 
@@ -43,8 +44,6 @@ def user_modal() -> rx.Component:
                             )
                         ),
                         name="role",
-                        # value=UserAdminState.form_data.get("role", ""),
-                        # on_change=lambda value: UserAdminState.set_form_field("role", value),
                         value=UserAdminState.form_role_id,  # 계산된 속성 사용
                         on_change=UserAdminState.set_role,   # 전용 핸들러 사용
                         required=True,
@@ -116,9 +115,48 @@ def user_admin_page() -> rx.Component:
             align="center",
             width="100%",
         ),
+        # 검색 필터 섹션
+        rx.hstack(
+            rx.select.root(
+                rx.select.trigger(placeholder="부서별로 필터링", width="140px"),
+                rx.select.content(
+                    # '전체' 옵션을 맨 위에 추가합니다.
+                    #rx.select.item("전체 부서", value=""),
+                    rx.foreach(
+                        UserAdminState.filter_department_options,
+                        lambda dept: rx.select.item(dept.name, value=dept.id)
+                    ),
+                ),
+                # state의 필터 변수와 값을 바인딩합니다.
+                #value=UserAdminState.filter_department_id,
+                # 값이 변경되면 state를 업데이트하는 핸들러를 호출합니다.
+                #on_change=UserAdminState.set_filter_department,
+            ),
+            rx.input(
+                placeholder="ID, 이름, 이메일로 검색...",
+                # 값이 변경되면 state를 업데이트하는 핸들러를 호출합니다.
+                #on_change=UserAdminState.set_filter_search,
+                # state의 필터 변수와 값을 바인딩합니다.
+                #value=UserAdminState.filter_search_term,
+                #flex_grow="0",  #  남은 공간을 모두 차지하도록 설정
+            ),
+            rx.spacer(),
+            rx.button(rx.icon(tag="search"), "검색", on_click=UserAdminState.open_create_modal, size="2"),
+            spacing="4",
+            width="100%",
+            padding_y="1rem",  # 위아래 여백 추가
+        ),
         rx.table.root(
             rx.table.header(
                 rx.table.row(
+                    rx.table.column_header_cell(
+                        rx.checkbox(
+                            # 계산된 속성에 체크 상태를 바인딩
+                            checked=UserAdminState.select_all_checked_state,
+                            # 클릭 시 전체 선택/해제 핸들러 호출
+                            on_change=UserAdminState.toggle_select_all,
+                        )
+                    ),
                     rx.table.column_header_cell("ID"),
                     rx.table.column_header_cell("로그인 ID"),
                     rx.table.column_header_cell("이름"),
@@ -133,16 +171,24 @@ def user_admin_page() -> rx.Component:
                 rx.foreach(
                     UserAdminState.display_users,
                     lambda user: rx.table.row(
-                        rx.table.cell(user["id"]),
-                        rx.table.cell(user["login_id"]),
-                        rx.table.cell(user["name"]),
-                        rx.table.cell(user["email"]),
-                        rx.table.cell(user["role_name"]),
-                        rx.table.cell(user["department_name"]),
+                        rx.table.cell(
+                            rx.checkbox(
+                                # 현재 사용자의 ID가 선택 목록(set)에 있는지 확인하여 체크 상태 결정
+                                checked=UserAdminState.selected_user_ids.contains(user.id),
+                                # 클릭 시 개별 선택 핸들러 호출
+                                on_change=lambda: UserAdminState.toggle_user_selection(user.id),
+                            )
+                        ),
+                        rx.table.cell(user.id),
+                        rx.table.cell(user.login_id),
+                        rx.table.cell(user.name),
+                        rx.table.cell(user.email),
+                        rx.table.cell(user.role_name),
+                        rx.table.cell(user.department_name),
                         rx.table.cell(
                             rx.badge(
-                                rx.cond(user["is_active"], "활성", "비활성"),
-                                color_scheme=rx.cond(user["is_active"], "grass", "ruby")
+                                rx.cond(user.is_active, "활성", "비활성"),
+                                color_scheme=rx.cond(user.is_active, "grass", "ruby")
                             )
                         ),
                         rx.table.cell(

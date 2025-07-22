@@ -1,5 +1,5 @@
 import enum
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set
 
 from sqlmodel import select
 from sqlalchemy.orm import selectinload
@@ -9,7 +9,7 @@ import reflex as rx
 from ...state.base import BaseState
 from ...utils import get_password_hash
 
-from .models import User, Department, UserRole
+from .models import User, Department, UserRole, UserList
 
 
 class UserAdminState(BaseState):
@@ -20,6 +20,9 @@ class UserAdminState(BaseState):
     show_modal: bool = False
     form_data: dict = {}
     is_edit: bool = False
+
+    # 선택된 사용자 ID를 저장하는 집합(set)
+    selected_user_ids: set[int] = set()
 
     # --- 클래스 변수 ---
     role_options: list[dict] = [
@@ -40,22 +43,48 @@ class UserAdminState(BaseState):
     def form_department_id(self) -> str:
         return str(self.form_data.get("department_id", ""))
 
+    # '전체' 항목이 추가된 필터 전용 목록을 생성하는 계산된 속성
     @rx.var
-    def display_users(self) -> List[Dict[str, Any]]:
+    def filter_department_options(self) -> list[dict]:
+        """필터 드롭다운을 위한 부서 목록을 반환합니다. ('전체 부서' 포함)"""
+        # '전체' 항목을 맨 앞에 추가합니다. id는 빈 문자열로 설정하여 '필터 없음'을 나타냅니다.
+        return [{"id": "__all__", "name": "전체 부서"}] + self.department_options
+
+    # 반환 타입을 명확한 UserDisplay 모델의 리스트로 변경
+    @rx.var
+    def display_users(self) -> List[UserList]:
+        """필터링된 사용자 목록을 UserDisplay 모델의 리스트로 반환합니다."""
         user_list = []
         for user in self.users:
             user_list.append(
-                {
-                    "id": user.id,
-                    "login_id": user.login_id,
-                    "name": user.name or "",
-                    "email": user.email or "",
-                    "role_name": user.role.name,
-                    "department_name": user.department.name if user.department else "N/A",
-                    "is_active": user.is_active,
-                }
+                UserList(
+                    id=user.id,
+                    login_id=user.login_id,
+                    name=user.name or "",
+                    email=user.email or "",
+                    role_name=user.role.name,
+                    department_name=user.department.name if user.department else "N/A",
+                    is_active=user.is_active,
+                )
             )
         return user_list
+
+    # '전체 선택' 체크박스의 상태를 결정하는 계산된 속성
+    @rx.var
+    def select_all_checked_state(self) -> bool:
+        """현재 표시된 모든 사용자가 선택되었는지 여부를 반환합니다. (True, False, "indeterminate")"""
+        # 표시된 사용자가 없으면 체크 해제 상태
+        if not self.display_users:
+            return False
+
+        # 현재 표시된 사용자의 ID 집합
+        displayed_ids = {user.id for user in self.display_users}
+
+        # 현재 표시된 모든 ID가 선택된 ID 집합에 포함되는지 확인
+        return displayed_ids.issubset(self.selected_user_ids)
+
+        # 일부만 선택되었으면 '중간 상태' 이거는 자바 스크립트에서 만 구현가능
+        # return "indeterminate"
 
     # --- 폼의 특정 필드 값을 업데이트하는 이벤트 핸들러
     def set_form_field(self, field: str, value: str):
@@ -75,7 +104,28 @@ class UserAdminState(BaseState):
     def set_department_id(self, selected_id: str):
         self.form_data = {**self.form_data, "department_id": selected_id}
 
+        # 개별 사용자 선택/해제 토글
+    def toggle_user_selection(self, user_id: int):
+        """지정된 사용자 ID를 선택 목록에 추가하거나 제거합니다."""
+        if user_id in self.selected_user_ids:
+            self.selected_user_ids.remove(user_id)
+        else:
+            self.selected_user_ids.add(user_id)
+
+    # 전체 선택/해제 토글
+    def toggle_select_all(self):
+        """현재 표시된 모든 사용자를 선택하거나 전체 선택을 해제합니다."""
+        displayed_ids = {user.id for user in self.display_users}
+
+        # 현재 표시된 항목들이 모두 선택된 상태가 아니면, 모두 선택
+        if not displayed_ids.issubset(self.selected_user_ids):
+            self.selected_user_ids.update(displayed_ids)
+        else:
+            # 모두 선택된 상태이면, 현재 표시된 항목들만 선택 해제
+            self.selected_user_ids.difference_update(displayed_ids)
+
     # --- 이벤트 핸들러 ---
+    # 페이지 로드 시 원본 부서 목록을 가져오는 함수
     def load_users_page(self):
         self.check_login()
         with rx.session() as session:

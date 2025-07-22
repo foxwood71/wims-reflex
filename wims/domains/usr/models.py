@@ -27,6 +27,18 @@ class UserRole(IntEnum):
     GENERAL_USER = 100      # 일반 사용자
 
 
+# [추가] UI 표시에 사용할 데이터 모델
+class UserList(rx.Base):
+    """사용자 목록 UI에 데이터를 표시하기 위한 모델 (DB 테이블이 아님)"""
+    id: int
+    login_id: str
+    name: str
+    email: str
+    role_name: str
+    department_name: str
+    is_active: bool
+
+
 class Department(rx.Model, table=True):
     """
     PostgreSQL의 usr.departments 테이블에 매핑되는 모델.
