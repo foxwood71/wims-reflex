@@ -1,19 +1,21 @@
-"""empty message
+"""Init
 
-Revision ID: 141d80a8d8bb
+Revision ID: 3882451738d0
 Revises: 
-Create Date: 2025-07-21 16:01:08.697971
+Create Date: 2025-07-27 20:39:58.681034
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+# [추가] SQLModel를 인식하도록 추가
+import sqlmodel
 from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = '141d80a8d8bb'
+revision: str = '3882451738d0'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -43,7 +45,7 @@ def upgrade() -> None:
     sa.Column('email', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('name', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
     sa.Column('department_id', sa.Integer(), nullable=True),
-    sa.Column('role', sa.Enum('ADMIN', 'LAB_MANAGER', 'LAB_ANALYST', 'FACILITY_MANAGER', 'INVENTORY_MANAGER', 'GENERAL_USER', name='userrole'), nullable=False),
+    sa.Column('role', sa.Integer(), nullable=True),
     sa.Column('code', sqlmodel.sql.sqltypes.AutoString(length=16), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),

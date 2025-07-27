@@ -1,9 +1,19 @@
+# wims/alembic/env.py
+
+import sys
+import os
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+# [추가] Reflex를 인식하도록 추가
+import reflex as rx
 
 from alembic import context
+
+# [추가] project root를 인식하도록 추가
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -17,8 +27,12 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
+# [편집] autogenerate가 모든 모델을 인식하도록 설정
+from wims import models     # noqa: F401, E402
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+# target_metadata = None
+# [편집] SQLModel을 인식하도록 설정
+target_metadata = rx.Model.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -44,6 +58,11 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        # [추가] autogenerate가 모든 스키마를 인식하도록 설정
+        include_schemas=True,
+        # [추가] 타입 및 서버 기본값 비교를 활성화하여 더 정확하게 감지합니다.
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -65,7 +84,13 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            # [추가] autogenerate가 모든 스키마를 인식하도록 설정
+            include_schemas=True,
+            # [추가] 타입 및 서버 기본값 비교를 활성화하여 더 정확하게 감지합니다.
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():

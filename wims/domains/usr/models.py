@@ -7,11 +7,11 @@ SQLModel을 상속받는 rx.Model을 사용하여 Reflex의 상태 관리와 통
 from typing import Optional, List
 from datetime import datetime, timezone
 from enum import IntEnum
-import reflex as rx
-from sqlmodel import Field, Relationship, Column
+
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.sql import func
-from sqlalchemy.types import TIMESTAMP
+from sqlmodel import Integer, Field, Relationship, Column, TIMESTAMP, func
+
+import reflex as rx
 
 
 class UserRole(IntEnum):
@@ -43,7 +43,7 @@ class Department(rx.Model, table=True):
     """
     PostgreSQL의 usr.departments 테이블에 매핑되는 모델.
     """
-    __tablename__ = "departments"
+    __tablename__ = "departments"  # type: ignore
     #  PostgreSQL 스키마를 사용하는 경우 명시합니다.
     __table_args__ = {'schema': 'usr'}
 
@@ -75,7 +75,7 @@ class User(rx.Model, table=True):
     """
     PostgreSQL의 usr.users 테이블에 매핑되는 모델.
     """
-    __tablename__ = "users"
+    __tablename__ = "users"  # type: ignore
     __table_args__ = {'schema': 'usr'}
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -88,7 +88,11 @@ class User(rx.Model, table=True):
     department_id: Optional[int] = Field(default=None, foreign_key="usr.departments.id")
 
     #  UserRole Enum을 사용하여 역할 관리
-    role: UserRole = Field(default=UserRole.GENERAL_USER, description="사용자 역할 (권한)")
+    role: UserRole = Field(
+        default=UserRole.GENERAL_USER,
+        sa_column=Column(Integer),  # <-- 이렇게 수정하세요.
+        description="사용자 역할 (권한)"
+    )
     code: Optional[str] = Field(default=None, max_length=16, unique=True, description="사번 등 사용자 고유 코드")
     is_active: bool = Field(default=True, description="계정 활성 여부")
 
@@ -107,7 +111,7 @@ class User(rx.Model, table=True):
     department: Optional[Department] = Relationship(back_populates="users")
 
     # [추가] 역할(Enum)의 이름을 반환하는 계산된 속성
-    @rx.var
+    @property
     def role_name(self) -> str:
         """사용자 역할의 이름을 문자열로 반환합니다."""
         return self.role.name

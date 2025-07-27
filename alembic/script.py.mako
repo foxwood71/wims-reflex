@@ -9,6 +9,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+# [추가] SQLModel를 인식하도록 추가
+import sqlmodel
 ${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
